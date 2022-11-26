@@ -8,7 +8,7 @@ where
 import Database.SQLite.Simple (execute_, open)
 import App.UserRegistry as X
 import App.IdService as X
--- import App.CargoRegistry  as X
+import App.CargoRegistry as X ()
 import App.Types as X
 import Repos (IdService)
 
