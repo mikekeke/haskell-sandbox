@@ -1,6 +1,5 @@
 module Repos where
 
-import Data.UUID (UUID)
 
 import Types ( CargoId, Cargo, Person, UserPhone, User )
 

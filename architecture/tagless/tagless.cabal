@@ -39,6 +39,7 @@ common common-lang
     , mtl
     , relude    ^>=1.1.0.0
     , unliftio
+    , monad-logger
 
   mixins:
     base hiding (Prelude),
@@ -82,12 +83,12 @@ common common-lang
 library
   import:           common-lang
   exposed-modules:
-    IOApp
-    IOApp.CargoRegistry
-    IOApp.IdService
-    IOApp.SQLiteInstances
-    IOApp.Types
-    IOApp.UserRegistry
+    App
+    App.CargoRegistry
+    App.IdService
+    App.SQLiteInstances
+    App.Types
+    App.UserRegistry
     Repos
     SQLite.DebugSQLite
     TestApp

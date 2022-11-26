@@ -1,13 +1,8 @@
 module TestApp where
 
-import Prelude hiding (get, gets, put, toString, fromString)
-import Data.Bifunctor (first, second)
-import Data.Functor.Identity ( Identity(runIdentity) )
-import Data.Map (Map)
+import Prelude hiding (get, gets, put, toString, fromString, state)
 import Data.Map qualified as Map
-import Data.Maybe (fromJust)
-import Data.UUID (UUID, fromString, nil, toString)
-import Data.UUID.V4 qualified as UUID
+import Data.UUID (UUID, nil)
 import Repos
     ( CargoRegistry(..),
       CargoRegistryError(SomeCargoRegError),
@@ -15,12 +10,11 @@ import Repos
       UserRegistry(..),
       UserRepoError(..)
      )
-import System.IO.Unsafe (unsafePerformIO)
 import Types ( Cargo(cGoods, cId)
   , CargoId(CargoId), Goods(Goods), Person(phone), User(User, getPerson) )
 import UnliftIO (MonadUnliftIO)
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.Reader (ReaderT (runReaderT), MonadReader (ask))
+import Data.UUID.V4 (nextRandom)
+import GHC.IO (unsafePerformIO)
 
 data TestAppState = TestAppState 
  { taCurrentUid :: UUID
@@ -54,7 +48,7 @@ instance CargoRegistry TestCargoApp where
   addCargo c = do
     appS <- get
     case cGoods c of
-      (Goods [x]) -> pure $ Left (SomeCargoRegError "Test error: registry unavailable")
+      (Goods [_]) -> pure $ Left (SomeCargoRegError "Test error: registry unavailable")
       _ -> Right <$> put (appS {taCargos = Map.insert (cId c) c (taCargos appS)})
 
   allCargos =
@@ -63,13 +57,7 @@ instance CargoRegistry TestCargoApp where
 instance IdService TestCargoApp where
   nextCargoId = do
     appS <- get
-    let lastUuid = taCurrentUid appS
-        newLast =
-          fromJust
-            . fromString
-            . (\(h : t) -> succ h : t)
-            . toString
-            $ lastUuid
+    let newLast = unsafePerformIO nextRandom
     put appS {taCurrentUid = newLast}
     pure . Right $ CargoId newLast
 

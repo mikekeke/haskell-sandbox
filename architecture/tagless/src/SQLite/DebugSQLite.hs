@@ -2,7 +2,7 @@ module SQLite.DebugSQLite where
   
 import Database.SQLite.Simple (open, execute_, execute)
 import Types (Person(Person), User (User))
-import IOApp.SQLiteInstances
+import App.SQLiteInstances
 
 run :: IO ()
 run = do
