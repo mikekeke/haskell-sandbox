@@ -1,0 +1,4 @@
+packages: 
+  .
+  architecture/tagless
+  concurrency

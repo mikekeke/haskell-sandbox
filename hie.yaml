@@ -1,0 +1,13 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:haskell-sandbox"
+
+    - path: "architecture/tagless/src"
+      component: "lib:tagless"
+
+    - path: "architecture/tagless/app/Main.hs"
+      component: "tagless:exe:tagless"
+
+    - path: "concurrency/app/Main.hs"
+      component: "concurrency:exe:concurrency"
