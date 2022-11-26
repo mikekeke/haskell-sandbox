@@ -85,7 +85,8 @@ library
   exposed-modules:
     App
     App.CargoRegistry
-    App.IdService
+    App.IdServiceIo
+    App.IdServiceNewtypeWrap
     App.SQLiteInstances
     App.Types
     App.UserRegistry

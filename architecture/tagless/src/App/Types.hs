@@ -2,6 +2,8 @@ module App.Types where
 import Database.SQLite.Simple (Connection)
 import UnliftIO (MonadUnliftIO)
 import Control.Monad.Logger (MonadLogger, LoggingT, runStdoutLoggingT)
+import Repos (IdService)
+import App.IdServiceIo ( IoIdSvcWithDelay(IoIdSvcWithDelay) )
 
 run :: MonadIO m => App m a -> AppEnv -> m a
 run app env = 
@@ -20,11 +22,31 @@ newtype App m a = App {unIOApp :: ReaderT AppEnv (LoggingT m) a}
     , MonadUnliftIO
     , MonadLogger
     )
-  -- deriving IdService via (IdSvcIoWithDelayImpl m)
-  {- ^^^ can't do like this and keep IdSvcIoWithDelayImpl in another module
+  deriving IdService via (IoIdSvcWithDelay (App m)) -- deriving through another instance (implementation)
+
+  -- deriving IdService via (IdSvcIoNewtypeWrap m) -- deriving via newtype wrapper
+  {- ^^^ can't do like this and keep IdSvcIoNewtypeWrap in another module
      coz of circular imports.
-     But can do standalone deriving in `App.hs`
+     But can do standalone deriving - see "Assembling variants" in `App.hs`
   -}
+
+
+-- newtype IoIdSvcWithDelay m a = IoIdSvcIoWithDelay (m a)
+--   deriving newtype (
+--       Functor 
+--     , Applicative
+--     , Monad
+--     -- , MonadReader AppEnv
+--     , MonadIO
+--     , MonadUnliftIO
+--     -- , MonadLogger
+--     )
+-- instance MonadIO m =>IdService (IoIdSvcWithDelay m) where
+--   nextCargoId = liftIO $ do
+--     putStrLn "Getting new ID"
+--     threadDelay 2_000_000
+--     Right . CargoId <$> nextRandom
+
 
 data AppEnv = AppEnv
   { dbConn :: Connection

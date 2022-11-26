@@ -1,4 +1,4 @@
-module App.IdService where
+module App.IdServiceNewtypeWrap where
 
 import Data.UUID.V4 (nextRandom)
 import App.Types (App, AppEnv)
@@ -8,7 +8,7 @@ import Control.Concurrent (threadDelay)
 import UnliftIO (MonadUnliftIO)
 import Control.Monad.Logger (MonadLogger)
 
-newtype IdSvcIoWithDelayImpl m a = IdSvcIoWithDelayImpl (App m a)
+newtype IdSvcIoNewtypeWrap m a = IdSvcIoNewtypeWrap (App m a)
   deriving newtype (
       Functor 
     , Applicative
@@ -18,8 +18,10 @@ newtype IdSvcIoWithDelayImpl m a = IdSvcIoWithDelayImpl (App m a)
     , MonadUnliftIO
     , MonadLogger
     )
-instance MonadIO m => IdService (IdSvcIoWithDelayImpl m) where
+instance MonadIO m => IdService (IdSvcIoNewtypeWrap m) where
   nextCargoId = liftIO $ do
     putStrLn "Getting new ID"
     threadDelay 2_000_000
     Right . CargoId <$> nextRandom
+
+
