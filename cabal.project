@@ -2,3 +2,4 @@ packages:
   .
   architecture/tagless
   concurrency
+  id-service

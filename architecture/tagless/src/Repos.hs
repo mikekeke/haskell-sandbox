@@ -9,12 +9,12 @@ data CargoRegistryError
   deriving stock Show
 
 class Monad m => CargoRegistry m where
-  addCargo :: Cargo -> m (Either CargoRegistryError ())
+  addCargo :: User -> Cargo -> m (Either CargoRegistryError ())
   allCargos :: m (Either CargoRegistryError [Cargo])
 
 -- ID service --
 data IdServiceError
-  = SomeIdServiceErr String
+  = SomeIdServiceErr Text
   deriving stock Show
 
 class Monad m => IdService m where

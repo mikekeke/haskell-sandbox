@@ -35,11 +35,8 @@ common common-lang
 
 
   build-depends:
-    , base      ^>=4.15.1.0
-    , mtl
-    , relude    ^>=1.1.0.0
-    , unliftio
-    , monad-logger
+    , base    ^>=4.15.1.0
+    , relude  ^>=1.1.0.0
 
   mixins:
     base hiding (Prelude),
@@ -85,7 +82,7 @@ library
   exposed-modules:
     App
     App.CargoRegistry
-    App.IdServiceIo
+    App.HttpIdService
     App.IdServiceNewtypeWrap
     App.SQLiteInstances
     App.Types
@@ -100,6 +97,8 @@ library
   hs-source-dirs:   src
   build-depends:
     , containers
+    , http-conduit
+    , monad-logger
     , mtl
     , pretty-show
     , sqlite-simple
@@ -117,6 +116,8 @@ executable tagless
   build-depends:
     , pretty-show
     , tagless
+    , unliftio
+    , monad-logger
 
   ghc-options:      -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:   app

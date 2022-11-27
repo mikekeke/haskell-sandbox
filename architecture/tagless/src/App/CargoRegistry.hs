@@ -8,7 +8,7 @@ import App.Types (App)
 import UnliftIO (MonadUnliftIO)
 
 instance MonadUnliftIO m => CargoRegistry (App m) where
-  addCargo _c =
+  addCargo _user _cargo =
     liftIO $ do
       putStrLn "Adding cargo"
       Right <$> putStrLn "Cargo added"

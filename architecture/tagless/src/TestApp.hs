@@ -45,7 +45,7 @@ gets :: (MonadReader (IORef a) f, MonadIO f) => (a -> b) -> f b
 gets f  = f <$> get
 
 instance CargoRegistry TestCargoApp where
-  addCargo c = do
+  addCargo _ c = do
     appS <- get
     case cGoods c of
       (Goods [_]) -> pure $ Left (SomeCargoRegError "Test error: registry unavailable")

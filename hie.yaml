@@ -11,3 +11,6 @@ cradle:
 
     - path: "concurrency/app/Main.hs"
       component: "concurrency:exe:concurrency"
+
+    - path: "id-service/app/Main.hs"
+      component: "id-service:exe:id-service"

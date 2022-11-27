@@ -2,16 +2,8 @@
 
 module Usecase.Registration where
 
--- import Control.Monad.Trans.Either
-
-import Control.Arrow (left)
-import Control.Monad.IO.Class (MonadIO, liftIO)
--- import Control.Monad.Trans.Either (EitherT, firstEitherT, newEitherT, runEitherT)
-
--- import UnliftIO.Async (Concurrently (Concurrently, runConcurrently))
--- import UnliftIO.Async (Concurrently (Concurrently, runConcurrently))
-import Control.Monad.Trans.Either (EitherT, firstEitherT, hoistEither, newEitherT, runEitherT)
-import Debug.Trace
+import Control.Monad.Logger (MonadLogger)
+import Control.Monad.Trans.Either (EitherT, firstEitherT, newEitherT, runEitherT)
 import Repos
   ( CargoRegistry (..),
     CargoRegistryError,
@@ -27,12 +19,18 @@ import UnliftIO (Concurrently (Concurrently, runConcurrently), MonadUnliftIO)
 
 data RegistrationError
   = CargoRepoErr CargoRegistryError
-  | IdServiceErr IdServiceError
+  | FailedToGetNewId IdServiceError
   | UserRepoError UserRepoError
   deriving stock (Show)
 
 registerCargo ::
-  (Monad m, MonadUnliftIO m, CargoRegistry m, IdService m, UserRegistry m) =>
+  ( Monad m,
+    MonadUnliftIO m,
+    CargoRegistry m,
+    IdService m,
+    UserRegistry m,
+    MonadLogger m
+  ) =>
   Person ->
   Goods ->
   m (Either RegistrationError ())
@@ -40,11 +38,12 @@ registerCargo p gs = do
   (uid, user) <-
     runConcurrently $
       (,) <$> Concurrently nextCargoId <*> Concurrently registerUser
+  -- logDebugN $ "@@NEW ID: " <> show uid
   runEitherT $ do
-    newId <- handling IdServiceErr (pure uid)
-    userReg <- handling UserRepoError (pure user)
+    newId <- handling FailedToGetNewId (pure uid) -- FIXME: refactor to better solution
+    user <- handling UserRepoError (pure user)
     let newCargo = Cargo newId p gs
-    handling CargoRepoErr $ addCargo newCargo
+    handling CargoRepoErr $ addCargo user newCargo
   where
     registerUser = do
       eUser <- getUser (phone p)
