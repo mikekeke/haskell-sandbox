@@ -9,6 +9,9 @@ cradle:
     - path: "architecture/tagless/app/Main.hs"
       component: "tagless:exe:tagless"
 
+    - path: "concurrency/src"
+      component: "lib:concurrency"
+
     - path: "concurrency/app/Main.hs"
       component: "concurrency:exe:concurrency"
 

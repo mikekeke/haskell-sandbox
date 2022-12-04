@@ -1,64 +1,37 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
 module Main where
 
-import Control.Concurrent (Chan, newChan, threadDelay, writeChan, dupChan, readChan, forkIO)
-import Control.Concurrent.Async (poll, withAsync)
-import System.IO (getChar)
+import Network (Network, newIndex, nodeIsRunning, addNode, removeNode, getNode)
+import Text.Read (read)
 import Data.Text qualified as T
+import Node (createNode, nodeId, killNode)
 
 main :: IO ()
 main = do
   hSetBuffering stdin NoBuffering
   putStrLn "Starting"
-  chan <- newChan
-  _ <- forkIO $ runApp newApp (AppEnv chan)
-  listenChan <- dupChan chan
-  fix $ \loop -> do
-    event <- readChan listenChan
-    case event of
-      QuitEvent -> putStrLn "Done"
-      other -> print other >> threadDelay 1_000_000 >> loop
+  evalStateT runner newIndex
 
-class EventBus app where
-  type EventType app :: Type
-  type BusType app :: Type
+runner :: Network ()
+runner = forever $ do
+  undefined
+  -- cmd <- getLine
+  -- case words cmd of
+  --     ["rn", i] -> do
+  --       let nId = read (T.unpack i)
+  --       isRunning <- gets (nodeIsRunning nId)
+  --       unless isRunning $ do
+  --         print $ "Starting new node " <> i
+  --         nNode <- liftIO (newNode nId)
+  --         modify (addNode nNode)
 
-  sendToBus :: EventType app -> app ()
+  --     ["kn", i] -> do
+  --       let nId = read (T.unpack i)
+  --       mNode <- gets (getNode nId)
+  --       case mNode of 
+  --         Just node -> do
+  --           print $ "Killing node " <> i
+  --           liftIO $ killNode node
+  --           modify (removeNode $ nodeId node)
+  --         _ -> print "Can't kill node - not found"
 
-data Event
-  = SomeEvent Text
-  | QuitEvent
-  deriving stock (Show)
-
-instance IsString Event where
-  fromString = SomeEvent . T.pack
-
-newtype App a = App {getApp :: ReaderT AppEnv IO a}
-  deriving newtype (Functor, Applicative, Monad, MonadReader AppEnv, MonadIO)
-
-data AppEnv = AppEnv
-  { eventBus :: BusType App
-  }
-
-instance EventBus App where
-  type EventType App = Event
-  type BusType App = Chan Event
-
-  sendToBus ev = asks eventBus >>= \ch -> liftIO $ writeChan ch ev
-
-runApp :: App a -> AppEnv -> IO a
-runApp = runReaderT . getApp
-
-newApp :: App ()
-newApp = go
-  where
-    events = ["lol", "kek", "run", "user logged in", "we are hacked"] ++ [QuitEvent]
-    go = do
-      forM_ events $ \event -> do
-        sendToBus event
-        liftIO $ threadDelay 200_000
-      print @Text "Sending finished"
+  --     _ -> print "Unknown command"
