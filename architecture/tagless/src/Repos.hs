@@ -25,7 +25,7 @@ class Monad m => IdService m where
 data UserRepoError 
   = UserNotFound UserPhone
   | ManyUsersFound UserPhone
-  | OtherUSerRepoErr String
+  | OtherUserRepoErr String
   deriving stock Show
 
 class Monad m => UserRegistry m where

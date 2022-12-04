@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module App.HttpIdService
@@ -5,7 +6,11 @@ module App.HttpIdService
   )
 where
 
-import Control.Monad.Logger (MonadLogger, logErrorN, logInfoN)
+import Control.Monad.Logger
+  ( MonadLogger,
+    logErrorN,
+    logInfoN
+  )
 import Network.HTTP.Simple (HttpException, JSONException, getResponseBody, httpJSON)
 import Repos (IdService (nextCargoId), IdServiceError (SomeIdServiceErr))
 import Types (CargoId (CargoId))
@@ -36,5 +41,5 @@ instance (MonadUnliftIO m, MonadLogger m) => IdService (HttpIdService m) where
       Left unknown -> errWithLog "Unknown error" unknown
     where
       errWithLog msg e = do
-        logErrorN $ "Error getting ID: " <> show e
+        logErrorN  ("Error getting ID: " <> show e)
         pure $ Left $ SomeIdServiceErr msg

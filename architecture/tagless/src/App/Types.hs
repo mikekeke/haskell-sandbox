@@ -4,6 +4,7 @@ import UnliftIO (MonadUnliftIO)
 import Control.Monad.Logger (MonadLogger, LoggingT, runStdoutLoggingT)
 import Repos (IdService)
 import App.HttpIdService ( HttpIdService(HttpIdService) )
+import App.IdServiceSubs ( IdSvcIo(IdSvcIo) )
 
 run :: MonadIO m => App m a -> AppEnv -> m a
 run app env = 
@@ -22,7 +23,8 @@ newtype App m a = App {unIOApp :: ReaderT AppEnv (LoggingT m) a}
     , MonadUnliftIO
     , MonadLogger
     )
-  deriving IdService via (HttpIdService (App m)) -- deriving through another instance (implementation)
+  -- deriving IdService via (HttpIdService (App m)) -- deriving through another instance (implementation)
+  deriving IdService via (IdSvcIo (App m)) -- TODO
 
   -- deriving IdService via (IdSvcIoNewtypeWrap m) -- deriving via newtype wrapper
   {- ^^^ can't do like this and keep IdSvcIoNewtypeWrap in another module

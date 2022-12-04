@@ -7,7 +7,7 @@ where
 
 import Database.SQLite.Simple (execute_, open)
 import App.UserRegistry as X
-import App.IdServiceNewtypeWrap as X
+import App.IdServiceSubs as X
 import App.CargoRegistry as X ()
 import App.Types as X
 

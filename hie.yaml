@@ -14,3 +14,6 @@ cradle:
 
     - path: "id-service/app/Main.hs"
       component: "id-service:exe:id-service"
+
+    - path: "random/app/Main.hs"
+      component: "random:exe:random"

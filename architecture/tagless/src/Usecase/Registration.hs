@@ -2,7 +2,7 @@
 
 module Usecase.Registration where
 
-import Control.Monad.Logger (MonadLogger)
+import Control.Monad.Logger (MonadLogger, logErrorN, logInfoN)
 import Control.Monad.Trans.Either (EitherT, firstEitherT, newEitherT, runEitherT)
 import Repos
   ( CargoRegistry (..),
@@ -12,15 +12,16 @@ import Repos
     UserRegistry (addUser, getUser),
     UserRepoError (UserNotFound),
   )
-import Types (Cargo (Cargo), Goods, Person (phone))
-import UnliftIO (Concurrently (Concurrently, runConcurrently), MonadUnliftIO)
+import Types (Cargo (Cargo), CargoId (CargoId), Goods, Person (phone), User (User), cId)
+import UnliftIO (Concurrently (Concurrently, runConcurrently), MonadUnliftIO, conc, runConc)
+import Control.Arrow (left)
 
 -- import Users (UserServiceError, registerUser)
 
 data RegistrationError
-  = CargoRepoErr CargoRegistryError
+  = FailedToRegisterCargo CargoRegistryError
   | FailedToGetNewId IdServiceError
-  | UserRepoError UserRepoError
+  | FailedRegisterUser UserRepoError
   deriving stock (Show)
 
 registerCargo ::
@@ -34,28 +35,31 @@ registerCargo ::
   Person ->
   Goods ->
   m (Either RegistrationError ())
-registerCargo p gs = do
-  (uid, user) <-
-    runConcurrently $
-      (,) <$> Concurrently nextCargoId <*> Concurrently registerUser
-  -- logDebugN $ "@@NEW ID: " <> show uid
-  runEitherT $ do
-    newId <- handling FailedToGetNewId (pure uid) -- FIXME: refactor to better solution
-    user <- handling UserRepoError (pure user)
+registerCargo p gs = do 
+  res <- runConc $ (,) <$> conc getNewId <*> conc registerUser
+  withLogging $ runEitherT $ do
+    (newId, user) <- hoistEither $ uncurry (liftA2 (,)) res
     let newCargo = Cargo newId p gs
-    handling CargoRepoErr $ addCargo user newCargo
+    addNewCargo user newCargo
   where
-    registerUser = do
-      eUser <- getUser (phone p)
-      case eUser of
-        Right u -> pure $ Right u
-        Left (UserNotFound _) -> addUser p
-        Left e -> pure $ Left e
+    getNewId = left FailedToGetNewId <$> nextCargoId
+    registerUser = left FailedRegisterUser <$> addUser p 
+    addNewCargo user newCargo = addCargo user newCargo `handling` FailedToRegisterCargo
 
-handling ::
-  Monad m =>
-  (e -> RegistrationError) ->
-  m (Either e a) ->
-  EitherT RegistrationError m a
-handling errorCons action =
-  firstEitherT errorCons $ newEitherT action
+    withLogging :: 
+      MonadLogger m => 
+      m (Either RegistrationError ()) ->
+      m (Either RegistrationError ())
+    withLogging act = do
+      logInfoN "registering new cargo"
+      res <- act 
+      either
+        (logErrorN . show)
+        (const $ logInfoN "New cargo registered")
+        res
+      return  res
+
+handling :: Functor m => m (Either e a) -> (e -> e') -> EitherT e' m a
+handling m errCons = firstEitherT errCons $ newEitherT m
+
+

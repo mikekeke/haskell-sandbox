@@ -83,7 +83,7 @@ library
     App
     App.CargoRegistry
     App.HttpIdService
-    App.IdServiceNewtypeWrap
+    App.IdServiceSubs
     App.SQLiteInstances
     App.Types
     App.UserRegistry

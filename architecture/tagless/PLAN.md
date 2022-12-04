@@ -1,6 +1,7 @@
 # Plan
 
 - [ ] Fix FIXMEs
+- [ ] Should make abstraction over transactions for working with repos, like `unit of work`?
 - [ ] Make table and real requests for cargo reg service
 - [ ] Copy ID web-service and add http impl for `IdService`
 - [ ] Add readme

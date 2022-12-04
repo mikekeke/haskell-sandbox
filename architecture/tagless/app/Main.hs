@@ -42,7 +42,7 @@ someApp = do
     traverse
       (uncurry Reg.registerCargo)
       [ (Person "Bob" "3344", Goods ["Bob's shit"]),
-        (Person "Tom" "22111", Goods ["bread", "pitt"])
+        (Person "Tom" "3344", Goods ["bread", "pitt"])
       ]
   pure $
     SomeAppRes
@@ -51,3 +51,4 @@ someApp = do
 withCapitalizer :: ((String -> String) -> IO ()) -> IO ()
 withCapitalizer act = do
   act (map toUpper)
+

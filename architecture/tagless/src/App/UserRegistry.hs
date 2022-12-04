@@ -7,7 +7,7 @@ import Control.Exception (try)
 import Database.SQLite.Simple (SQLError, execute, query_)
 import App.SQLiteInstances ()
 import App.Types (App, AppEnv (dbConn))
-import Repos (UserRegistry (addUser, allUsers, getUser), UserRepoError (OtherUSerRepoErr, UserNotFound))
+import Repos (UserRegistry (addUser, allUsers, getUser), UserRepoError (OtherUserRepoErr, UserNotFound))
 import Types (Person, User (User))
 
 instance MonadIO m => UserRegistry (App m) where
@@ -24,20 +24,20 @@ addUser_ :: MonadIO m => Person -> App m (Either UserRepoError User)
 addUser_ p = do
   conn <- asks dbConn
   tryAdd conn
-    <&> left (OtherUSerRepoErr . show)
+    <&> left (OtherUserRepoErr . show)
   where
     tryAdd conn =
       liftIO $
         try @SQLError $ do
           let user = User p
-          execute conn "INSERT INTO user (name, phone) VALUES (?,?)" user
+          execute conn "INSERT OR IGNORE INTO user (name, phone) VALUES (?,?)" user
           pure user
 
 allUsers_ :: MonadIO m => App m (Either UserRepoError [User])
 allUsers_ = do
   conn <- asks dbConn
   tryQueryAll conn
-    <&> left (OtherUSerRepoErr . show)
+    <&> left (OtherUserRepoErr . show)
   where
     tryQueryAll c =
       liftIO . try @SQLError $

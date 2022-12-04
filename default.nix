@@ -26,6 +26,7 @@ pkgs.mkShell {
       haskellPackages.cabal-fmt
       haskellPackages.fourmolu
       haskellPackages.implicit-hie
+      haskellPackages.pointfree
     ];
   LANG = "C.UTF-8";
 }

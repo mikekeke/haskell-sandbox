@@ -2,4 +2,5 @@ packages:
   .
   architecture/tagless
   concurrency
+  random-stuff
   id-service
