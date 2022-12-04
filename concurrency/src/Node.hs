@@ -4,11 +4,12 @@ module Node
     createNode,
     killNode,
     NodeId,
+    showN,
     -- startNodeSendDebug,
   addPeer, removePeer, startNodeSendDebug)
 where
 
-import Control.Concurrent (Chan, ThreadId, newChan, forkIO, readChan, writeChan, killThread, modifyMVar, modifyMVar_)
+import Control.Concurrent (Chan, ThreadId, newChan, forkIO, readChan, writeChan, killThread, modifyMVar, modifyMVar_, threadDelay)
 
 type NodeId = Int
 
@@ -23,6 +24,8 @@ data RunningNode = RunningNode
     nodePeers :: MVar [RunningNode],
     nodeTids :: [ThreadId]
   }
+
+showN rn = "Node #" <> show (nodeId rn) -- fixme
 
 instance Eq RunningNode where
   (==) = (==) `on` nodeId
@@ -42,25 +45,38 @@ startNodeProcess i inb peers = do
       msg <- readChan inb
       peers' <- readMVar peers
       case msg of
-        Fetch _ -> do
-          print $ "Got " <> show msg
-          forM_ peers' $ \peer -> do writeChan (inbox peer) (ChainOf i "aaa")
+        Fetch reqI -> do
+          print $ "Node #" <> show i <> " received: " <> show msg
+          forM_
+            (filterById reqI peers')
+            (\peer -> sendTo peer (ChainOf i "aaa"))
         other -> print $ show i <> " received: " <> show other
   return [t1]
 
 killNode :: RunningNode -> IO ()
 killNode = mapM_ killThread . nodeTids
 
+filterById i = filter ((== i) . nodeId)
+
+sendTo p = writeChan (inbox p)
+
 startNodeSendDebug :: IO RunningNode
 startNodeSendDebug = do
+  print "Starting 666"
   let nId = 666
   inb <- newChan
   peers <- newMVar []
   t1 <- forkIO . forever $ do
+    let targetId = 1
     peers' <- readMVar peers
-    forM_ peers' $ \peer -> do 
-      print $ show nId <> " is fetching 1"
-      writeChan (inbox peer) (Fetch 1)
+    print $ "peers " <> show (map showN peers')
+    forM_ 
+      (filterById targetId peers') 
+      (\peer -> do
+        print $ show nId <> " is fetching " <> show targetId
+        sendTo peer (Fetch 1)
+      )
+    threadDelay 2_000_000
   return $ RunningNode nId inb peers [t1]
 
 
