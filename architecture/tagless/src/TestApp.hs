@@ -11,7 +11,7 @@ import Repos
       UserRepoError(..)
      )
 import Types ( Cargo(cGoods, cId)
-  , CargoId(CargoId), Goods(Goods), Person(phone), User(User, getPerson) )
+  , CargoId(CargoId), Goods(Goods), User, userFromPerson, userId, )
 import UnliftIO (MonadUnliftIO)
 import Data.UUID.V4 (nextRandom)
 import GHC.IO (unsafePerformIO)
@@ -45,7 +45,7 @@ gets :: (MonadReader (IORef a) f, MonadIO f) => (a -> b) -> f b
 gets f  = f <$> get
 
 instance CargoRegistry TestCargoApp where
-  addCargo _ c = do
+  addCargo c = do
     appS <- get
     case cGoods c of
       (Goods [_]) -> pure $ Left (SomeCargoRegError "Test error: registry unavailable")
@@ -62,16 +62,16 @@ instance IdService TestCargoApp where
     pure . Right $ CargoId newLast
 
 instance UserRegistry TestCargoApp where
-  addUser p = let user = User p in
+  addUser p = let user = userFromPerson p in
     get >>= 
       \s -> put s{taUsers = user : taUsers s}
       >> pure (Right user)
 
-  getUser ph = do
-    users <- gets $ filter ((ph ==) . phone . getPerson) . taUsers
+  getUser uid  = do
+    users <- gets $ filter ((uid ==) . userId) . taUsers
     case users of
       [u] -> pure $ Right u
-      (_:_) -> pure $ Left (ManyUsersFound ph)
-      [] -> pure $ Left (UserNotFound ph)
+      (_:_) -> pure $ Left (ManyUsersFound uid)
+      [] -> pure $ Left (UserNotFound uid)
 
   allUsers = gets (Right . taUsers)

@@ -19,8 +19,20 @@ bpPath = "app.db"
 setup :: AppConfig -> IO AppEnv
 setup _ = do
   conn <- open bpPath
-  execute_ conn "CREATE TABLE IF NOT EXISTS user (name TEXT, phone TEXT not null unique)"
+  traverse_ ($ conn) 
+    [ initUserTable
+    , initCargoTable
+    ]
+    
   return (AppEnv conn)
+  where
+    initUserTable conn =
+      execute_ conn
+        "CREATE TABLE IF NOT EXISTS user (id TEXT not null unique, name TEXT, phone TEXT)"
+
+    initCargoTable conn =
+      execute_ conn
+        "CREATE TABLE IF NOT EXISTS cargo (id TEXT not null unique, owner_id TEXT, goods TEXT)"
 
 -------------------------
 -- Assembling variants --

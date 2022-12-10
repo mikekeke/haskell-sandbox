@@ -1,4 +1,18 @@
-module Types where
+{-# LANGUAGE PatternSynonyms #-}
+module Types (
+  Cargo(..),
+  CargoId(..),
+  Goods(..),
+  Person(..),
+  User, 
+  UserPhone,
+  UserId,
+  userId,
+  mkUser,
+  userName,
+  userPhone,
+
+ userFromPerson)where
 
 import Data.Foldable (for_)
 import Data.Map (Map)
@@ -10,28 +24,47 @@ import Text.Show.Pretty (ppShow)
 
 data Cargo = Cargo
   { cId :: CargoId,
-    cOwner :: Person,
+    cOwner :: UserId,
     cGoods :: Goods
   }
   deriving stock (Show)
 
-data CargoId = CargoId {getId :: UUID}
-  deriving stock (Eq, Ord, Show)
+newtype CargoId = CargoId {getId :: UUID}
+  deriving stock (Eq, Ord, Show, Generic)
 
 newtype Goods = Goods
-  { goodsList :: [String]
+  { goodsList :: [Text]
   }
   deriving stock (Show)
 
 data Person = Person
-  { name :: String,
-    phone :: UserPhone -- used for indetification
+  { pName :: Text,
+    pPhone :: UserPhone -- used for indetification
   }
   deriving stock (Eq, Show, Generic)
 
-newtype User = User
-  { getPerson :: Person
-  }
+type UserPhone = Text
+
+type UserId = UserPhone
+data User = MkUser UserId Person
   deriving stock (Eq, Show, Generic)
 
-type UserPhone = String
+userId :: User -> UserId
+userId (MkUser uid _) = uid 
+
+getPerson :: User -> Person
+getPerson (MkUser _ p) = p 
+
+mkUser :: UserId -> Text -> Text -> User
+mkUser uid name phone = MkUser uid (Person name phone)
+
+userFromPerson :: Person -> User
+userFromPerson p = MkUser (pPhone p) p
+
+userName :: User -> Text
+userName = pName . getPerson
+
+userPhone :: User -> UserPhone
+userPhone = pPhone . getPerson
+
+

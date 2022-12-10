@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Node
   ( RunningNode,
     nodeId,
@@ -10,6 +11,9 @@ module Node
 where
 
 import Control.Concurrent (Chan, ThreadId, newChan, forkIO, readChan, writeChan, killThread, modifyMVar, modifyMVar_, threadDelay)
+import Data.List.Split
+import Text.Read (read)
+import Data.Text.IO (getContents)
 
 type NodeId = Int
 
@@ -89,3 +93,28 @@ removePeer :: RunningNode -> RunningNode -> IO ()
 removePeer self other =
   modifyMVar_ (nodePeers self)
   (pure . filter (/= other))
+
+
+-- Function to parse a string representation of a range of IDs into a pair of Ints
+parseRange :: Text -> (Int, Int)
+parseRange s = (read a, read b)
+    where [a, b] = splitOn "-" s
+
+-- Function to check if one range fully contains the other
+rangeContains :: (Int, Int) -> (Int, Int) -> Bool
+rangeContains (a1, b1) (a2, b2) = (a1 <= a2) && (b1 >= b2)
+
+-- Main function
+main :: IO ()
+main = do
+    -- Read the input
+    input <- getLine
+
+    -- Parse the input into a list of range pairs
+    let ranges = map (map parseRange . words) . lines $ input
+
+    -- Count the number of pairs where one range fully contains the other
+    let count = length . filter (\[r1, r2] -> rangeContains r1 r2 || rangeContains r2 r1) $ ranges
+
+    -- Print the result
+    print count

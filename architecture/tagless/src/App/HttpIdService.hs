@@ -43,3 +43,5 @@ instance (MonadUnliftIO m, MonadLogger m) => IdService (HttpIdService m) where
       errWithLog msg e = do
         logErrorN  ("Error getting ID: " <> show e)
         pure $ Left $ SomeIdServiceErr msg
+    
+  {-# INLINE nextCargoId #-}

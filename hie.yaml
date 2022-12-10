@@ -20,3 +20,9 @@ cradle:
 
     - path: "random/app/Main.hs"
       component: "random:exe:random"
+
+    - path: "learning/src"
+      component: "lib:learning"
+
+    - path: "learning/app/Main.hs"
+      component: "learning:exe:learning"

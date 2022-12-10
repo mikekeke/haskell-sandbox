@@ -9,11 +9,11 @@ import Repos
     CargoRegistryError,
     IdService (..),
     IdServiceError,
-    UserRegistry (addUser, getUser),
+    UserRegistry (addUser),
     UserRepoError (UserNotFound),
   )
-import Types (Cargo (Cargo), CargoId (CargoId), Goods, Person (phone), User (User), cId)
-import UnliftIO (Concurrently (Concurrently, runConcurrently), MonadUnliftIO, conc, runConc)
+import Types (Cargo (Cargo), Goods, Person, userId)
+import UnliftIO (MonadUnliftIO, conc, runConc)
 import Control.Arrow (left)
 
 -- import Users (UserServiceError, registerUser)
@@ -38,13 +38,13 @@ registerCargo ::
 registerCargo p gs = do 
   res <- runConc $ (,) <$> conc getNewId <*> conc registerUser
   withLogging $ runEitherT $ do
-    (newId, user) <- hoistEither $ uncurry (liftA2 (,)) res
-    let newCargo = Cargo newId p gs
-    addNewCargo user newCargo
+    (newId, user) <- hoistEither $ uncurry (liftA2 (,)) res -- FIXME: ugly, neponyatno
+    let newCargo = Cargo newId (userId user) gs
+    addNewCargo newCargo
   where
     getNewId = left FailedToGetNewId <$> nextCargoId
     registerUser = left FailedRegisterUser <$> addUser p 
-    addNewCargo user newCargo = addCargo user newCargo `handling` FailedToRegisterCargo
+    addNewCargo newCargo = addCargo newCargo `handling` FailedToRegisterCargo
 
     withLogging :: 
       MonadLogger m => 

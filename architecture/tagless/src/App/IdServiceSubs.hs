@@ -47,4 +47,6 @@ instance MonadIO m => IdService (IdSvcIo m) where
     threadDelay 2_000_000
     Right . CargoId <$> nextRandom
 
+  {-# INLINE nextCargoId #-}
+
 
