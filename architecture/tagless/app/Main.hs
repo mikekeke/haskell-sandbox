@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use <$>" #-}
 module Main where
 
 import App
@@ -7,7 +9,7 @@ import Repos
   ( CargoRegistry (allCargos),
     CargoRegistryError,
     IdService,
-    UserRegistry (allUsers),
+    UserRegistry (allUsers, getUser),
     UserRepoError,
   )
 import Text.Show.Pretty (pPrint)
@@ -26,6 +28,9 @@ main = do
 
 data SomeAppRes = SomeAppRes
   { regResults :: [Either RegistrationError ()]
+  , usersRes :: Either UserRepoError [User]
+  , cargosRes :: Either CargoRegistryError [Cargo]
+  , userRes :: Either UserRepoError User
   }
   deriving stock (Show)
 
@@ -41,12 +46,20 @@ someApp = do
   regRes <-
     traverse
       (uncurry Reg.registerCargo)
-      [ (Person "Bob" "3344", Goods ["Bob's shit"]),
-        (Person "Tom" "3344", Goods ["bread", "pitt"])
+      [ (Person "Bob" "phone-3344", Goods ["Bob's shit"]),
+        (Person "Bob" "phone-3344", Goods ["MORE Bob's shit"]),
+        (Person "Tom" "phone-111", Goods ["bread", "pitt"]),
+        (Person "Lol" "phone-3344", Goods ["some", "stuff"])
       ]
+  users <- allUsers
+  cargos <- allCargos 
+  user <- getUser "3344"
   pure $
     SomeAppRes
       regRes
+      users
+      cargos
+      user
 
 withCapitalizer :: ((String -> String) -> IO ()) -> IO ()
 withCapitalizer act = do

@@ -1,6 +1,7 @@
 packages: 
   .
   architecture/tagless
+  architecture/brick-tui
   concurrency
   random-stuff
   id-service

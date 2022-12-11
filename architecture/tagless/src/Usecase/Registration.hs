@@ -36,15 +36,19 @@ registerCargo ::
   Goods ->
   m (Either RegistrationError ())
 registerCargo p gs = do 
-  res <- runConc $ (,) <$> conc getNewId <*> conc registerUser
+  res <- concurrentlyGetIdForCargoAndRegisterUser
   withLogging $ runEitherT $ do
     (newId, user) <- hoistEither $ uncurry (liftA2 (,)) res -- FIXME: ugly, neponyatno
     let newCargo = Cargo newId (userId user) gs
     addNewCargo newCargo
   where
     getNewId = left FailedToGetNewId <$> nextCargoId
-    registerUser = left FailedRegisterUser <$> addUser p 
     addNewCargo newCargo = addCargo newCargo `handling` FailedToRegisterCargo
+    registerUser = do 
+      left FailedRegisterUser <$> addUser p
+
+    concurrentlyGetIdForCargoAndRegisterUser = 
+      runConc $ (,) <$> conc getNewId <*> conc registerUser
 
     withLogging :: 
       MonadLogger m => 

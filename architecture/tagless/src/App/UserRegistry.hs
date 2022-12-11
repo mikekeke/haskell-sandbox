@@ -7,17 +7,14 @@ import App.Types (App, AppEnv (dbConn))
 import Control.Arrow (left)
 import Control.Concurrent (threadDelay)
 import Control.Exception (try)
-import Database.SQLite.Simple (SQLError, execute, query_)
-import Repos (UserRegistry (addUser, allUsers, getUser), UserRepoError (OtherUserRepoErr, UserNotFound))
-import Types (Person, User, userFromPerson)
+import Database.SQLite.Simple (Only (Only), SQLError, execute, query, query_)
+import Repos (UserRegistry (addUser, allUsers, getUser), UserRepoError (ConflictingUsers, ManyUsersFound, OtherUserRepoErr, UserNotFound))
+import Types (Person, User, UserId, userFromPerson, userId)
 
 instance MonadIO m => UserRegistry (App m) where
   addUser = addUser_
 
-  getUser _ = liftIO $ do
-    putStrLn "Getting user"
-    threadDelay 2_000_000
-    pure $ Left (UserNotFound "test no found phone") -- FIXME
+  getUser = getUser_
 
   allUsers = allUsers_
 
@@ -27,12 +24,16 @@ instance MonadIO m => UserRegistry (App m) where
 addUser_ :: MonadIO m => Person -> App m (Either UserRepoError User)
 addUser_ p = do
   conn <- asks dbConn
-  tryAdd conn
-    <&> left (OtherUserRepoErr . show)
+  let newUser = userFromPerson p
+      uid = userId newUser
+  existingUser <- getUser uid -- FIXME: transaction will be required here for other DBMSs
+  case existingUser of
+    Left (UserNotFound _) -> tryAdd conn newUser
+    Right u | u /= newUser -> pure . Left $ ConflictingUsers uid u newUser -- FIXME: tests
+    otherError -> pure otherError
   where
-    tryAdd conn = liftIO $
+    tryAdd conn user = (left (OtherUserRepoErr . show) <$>) . liftIO $
       try @SQLError $ do
-        let user = userFromPerson p
         execute conn "INSERT OR IGNORE INTO user (id, name, phone) VALUES (?,?,?)" user
         pure user
 
@@ -45,3 +46,22 @@ allUsers_ = do
     tryQueryAll c =
       liftIO . try @SQLError $
         (query_ c "SELECT * FROM user" :: IO [User])
+
+getUser_ ::
+  (MonadIO m, MonadReader AppEnv m) =>
+  UserId ->
+  m (Either UserRepoError User)
+getUser_ uid = do
+  conn <- asks dbConn
+  users <-
+    tryQueryAll conn
+      <&> left (OtherUserRepoErr . show)
+  pure $ case users of
+    Right [u] -> Right u
+    Right [] -> Left $ UserNotFound uid
+    Right (_ : _ : _) -> Left $ ManyUsersFound uid
+    Left sqlErr -> Left sqlErr
+  where
+    tryQueryAll c =
+      liftIO . try @SQLError $
+        query c "SELECT * FROM user where id = ?" (Only uid)
