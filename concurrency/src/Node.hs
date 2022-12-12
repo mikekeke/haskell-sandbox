@@ -1,120 +1,124 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
+
 module Node
-  ( RunningNode,
+  ( Node,
     nodeId,
-    createNode,
+    inChan,
+    outChan,
+    PeerAddr,
+    startNode,
+    tellNode,
     killNode,
-    NodeId,
-    showN,
-    -- startNodeSendDebug,
-  addPeer, removePeer, startNodeSendDebug)
+  )
 where
 
-import Control.Concurrent (Chan, ThreadId, newChan, forkIO, readChan, writeChan, killThread, modifyMVar, modifyMVar_, threadDelay)
-import Data.List.Split
-import Text.Read (read)
-import Data.Text.IO (getContents)
+import Control.Concurrent
+  ( Chan,
+    ThreadId,
+    forkIO,
+    killThread,
+    modifyMVar_,
+    newChan,
+    readChan,
+    writeChan,
+  )
+import Data.Sequence
+import Text.Show qualified
+import Types
 
 type NodeId = Int
 
 data Message
-  = Fetch NodeId
-  | ChainOf NodeId Text
+  = AddTx Tx
+  -- ChainOf NodeId Text
   deriving stock (Show)
 
-data RunningNode = RunningNode
+type Tx = Text
+
+data Node = Node
   { nodeId :: NodeId,
-    inbox :: Chan Message,
-    nodePeers :: MVar [RunningNode],
-    nodeTids :: [ThreadId]
+    inChan :: Chan Message,
+    outChan :: Chan Message,
+    nState :: NodeState,
+    nodeTids :: [ThreadId],
+    tickView :: TickView
   }
 
-showN rn = "Node #" <> show (nodeId rn) -- fixme
+type NodeState = MVar NState
 
-instance Eq RunningNode where
-  (==) = (==) `on` nodeId
+data NState = NState
+  { peers :: [Text],
+    transactions :: Seq Tx
+  }
 
-createNode :: NodeId -> IO RunningNode
-createNode i = do
-  inb <- newChan
-  peers <- newMVar []
-  tIds <- startNodeProcess i inb peers
-  return $ RunningNode i inb peers tIds
+addTxToState :: Tx -> NodeState -> IO ()
+addTxToState tx ns = do
+  modifyMVar_
+    ns
+    (\s -> pure $ s {transactions = transactions s |> tx})
 
-startNodeProcess :: Int -> Chan Message -> MVar [RunningNode] -> IO [ThreadId]
-startNodeProcess i inb peers = do
+instance Show Node where
+  show n = "Node #" <> show (nodeId n)
+
+-- showN rn = "Node #" <> show (nodeId rn) -- fixme
+
+tellNode :: Node -> Message -> IO ()
+tellNode n = writeChan (inChan n)
+
+startNode :: TickView -> NodeId -> IO Node
+startNode tickView nodeId = do
+  inChan <- newChan
+  outChan <- newChan
+  nState <- newMVar (NState mempty mempty)
+  nodeTids <- startNodeProcess nodeId inChan nState
+  return $ Node {..}
+
+startNodeProcess :: NodeId -> Chan Message -> NodeState -> IO [ThreadId]
+startNodeProcess i inCH ns = do
   print (mconcat ["Node #", show i, ": starts listening inbox"] :: Text)
   t1 <- forkIO $
     forever $ do
-      msg <- readChan inb
-      peers' <- readMVar peers
+      msg <- readChan inCH
       case msg of
-        Fetch reqI -> do
-          print $ "Node #" <> show i <> " received: " <> show msg
-          forM_
-            (filterById reqI peers')
-            (\peer -> sendTo peer (ChainOf i "aaa"))
-        other -> print $ show i <> " received: " <> show other
+        AddTx tx -> addTxToState tx ns
   return [t1]
 
-killNode :: RunningNode -> IO ()
+killNode :: Node -> IO ()
 killNode = mapM_ killThread . nodeTids
 
-filterById i = filter ((== i) . nodeId)
+-- filterById i = filter ((== i) . nodeId)
 
-sendTo p = writeChan (inbox p)
+-- sendTo p = writeChan (inbox p)
 
-startNodeSendDebug :: IO RunningNode
-startNodeSendDebug = do
-  print "Starting 666"
-  let nId = 666
-  inb <- newChan
-  peers <- newMVar []
-  t1 <- forkIO . forever $ do
-    let targetId = 1
-    peers' <- readMVar peers
-    print $ "peers " <> show (map showN peers')
-    forM_ 
-      (filterById targetId peers') 
-      (\peer -> do
-        print $ show nId <> " is fetching " <> show targetId
-        sendTo peer (Fetch 1)
-      )
-    threadDelay 2_000_000
-  return $ RunningNode nId inb peers [t1]
+-- startNodeSendDebug :: IO RunningNode
+-- startNodeSendDebug = do
+--   print "Starting 666"
+--   let nId = 666
+--   inb <- newChan
+--   peers <- newMVar []
+--   t1 <- forkIO . forever $ do
+--     let targetId = 1
+--     peers' <- readMVar peers
+--     print $ "peers " <> show (map showN peers')
+--     forM_
+--       (filterById targetId peers')
+--       (\peer -> do
+--         print $ show nId <> " is fetching " <> show targetId
+--         sendTo peer (Fetch 1)
+--       )
+--     threadDelay 2_000_000
+--   return $ RunningNode nId inb peers [t1]
 
+-- addPeer :: RunningNode -> RunningNode -> IO ()
+-- addPeer self other =
+--   modifyMVar_ (nodePeers self)
+--   (pure . (other:))
 
-addPeer :: RunningNode -> RunningNode -> IO ()
-addPeer self other =
-  modifyMVar_ (nodePeers self)
-  (pure . (other:))
-
-removePeer :: RunningNode -> RunningNode -> IO ()
-removePeer self other =
-  modifyMVar_ (nodePeers self)
-  (pure . filter (/= other))
-
-
--- Function to parse a string representation of a range of IDs into a pair of Ints
-parseRange :: Text -> (Int, Int)
-parseRange s = (read a, read b)
-    where [a, b] = splitOn "-" s
-
--- Function to check if one range fully contains the other
-rangeContains :: (Int, Int) -> (Int, Int) -> Bool
-rangeContains (a1, b1) (a2, b2) = (a1 <= a2) && (b1 >= b2)
-
--- Main function
-main :: IO ()
-main = do
-    -- Read the input
-    input <- getLine
-
-    -- Parse the input into a list of range pairs
-    let ranges = map (map parseRange . words) . lines $ input
-
-    -- Count the number of pairs where one range fully contains the other
-    let count = length . filter (\[r1, r2] -> rangeContains r1 r2 || rangeContains r2 r1) $ ranges
-
-    -- Print the result
-    print count
+-- removePeer :: RunningNode -> RunningNode -> IO ()
+-- removePeer self other =
+--   modifyMVar_ (nodePeers self)
+--   (pure . filter (/= other))
