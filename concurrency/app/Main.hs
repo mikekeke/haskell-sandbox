@@ -2,36 +2,26 @@ module Main where
 
 import Text.Read (read)
 import Data.Text qualified as T
+import Control.Concurrent (forkIO, threadDelay, modifyMVar_)
+import HttpNode (startHttpNode)
 
 main :: IO ()
 main = do
   hSetBuffering stdin NoBuffering
-  putStrLn "Starting"
---   evalStateT runner newIndex
+  putStrLn "Enter command:"
+  ticker <- startTicker
+  forever $ do
+    cmd <- getLine
+    case words cmd of
+        ["sn", i, p] -> startHttpNode (readT p) (readT i) ticker
+        _ -> die "hard"
 
--- runner :: Network ()
--- runner = do 
---   n666 <- liftIO $ startNodeSendDebug
---   addNode n666
---   forever $ do
---     cmd <- getLine
---     case words cmd of
---         ["rn", i] -> do
---           let nId = read (T.unpack i)
---           isRunning <- nodeIsRunning nId
---           unless isRunning $ do
---             print $ "Starting new node " <> i
---             nNode <- liftIO (createNode nId)
---             addNode nNode
+readT :: Read a => Text -> a
+readT = read . T.unpack
 
---         -- ["kn", i] -> do
---         --   let nId = read (T.unpack i)
---         --   mNode <- gets (getNode nId)
---         --   case mNode of 
---         --     Just node -> do
---         --       print $ "Killing node " <> i
---         --       liftIO $ killNode node
---         --       removeNode $ nodeId node
---         --     _ -> print "Can't kill node - not found"
+startTicker :: IO (MVar Int)
+startTicker = do
+  t <- newMVar 0
+  _ <- forkIO $ modifyMVar_ t (pure . succ) >> threadDelay 1_000_000
+  return t
 
---         _ -> print "Unknown command"

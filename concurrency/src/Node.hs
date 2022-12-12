@@ -13,6 +13,9 @@ module Node
     startNode,
     tellNode,
     killNode,
+    NodeId,
+    tellNode',
+    Message (..),
   )
 where
 
@@ -69,6 +72,9 @@ instance Show Node where
 tellNode :: Node -> Message -> IO ()
 tellNode n = writeChan (inChan n)
 
+tellNode' :: MonadIO m => Node -> Message -> m ()
+tellNode' = (liftIO .) . tellNode
+
 startNode :: TickView -> NodeId -> IO Node
 startNode tickView nodeId = do
   inChan <- newChan
@@ -83,6 +89,7 @@ startNodeProcess i inCH ns = do
   t1 <- forkIO $
     forever $ do
       msg <- readChan inCH
+      print (mconcat ["Node #", show i, ": received ", show msg] :: Text)
       case msg of
         AddTx tx -> addTxToState tx ns
   return [t1]
