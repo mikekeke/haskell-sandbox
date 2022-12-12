@@ -115,8 +115,9 @@ executable tui
   main-is:          Main.hs
   build-depends:
     , pretty-show
-    , brick
-    -- , tagless
+    , brick ^>=1.5
+    , tagless
+    , vty
     -- , unliftio
     -- , monad-logger
 
