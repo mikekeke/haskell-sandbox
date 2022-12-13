@@ -19,6 +19,7 @@ module Node
     OMessage (..),
     Peer,
     addPeerDebug,
+    listenNode,
   )
 where
 
@@ -58,7 +59,7 @@ data Node = Node
     inChan :: Chan Message,
     outChan :: Chan OMessage,
     nState :: NodeState,
-    nodeTids :: [ThreadId],
+    nodeTids :: MVar [ThreadId],
     tickView :: TickView
   }
 
@@ -100,7 +101,7 @@ startNode tickView nodeId = do
   inChan <- newChan
   outChan <- newChan
   nState <- newMVar (NState mempty mempty)
-  nodeTids <- startNodeProcess nodeId inChan outChan nState
+  nodeTids <- startNodeProcess nodeId inChan outChan nState >>= newMVar
   return $ Node {..}
 
 startNodeProcess :: NodeId -> Chan Message -> Chan OMessage -> NodeState -> IO [ThreadId]
@@ -116,8 +117,17 @@ startNodeProcess i inCh outCh ns = do
         Fetch reportTo -> readMVar ns >>= writeChan outCh . MyPeers reportTo . peers
   return [t1]
 
+listenNode :: Node -> (OMessage -> IO a) -> IO ()
+listenNode n handle = do
+  tid <-forkIO $ do
+    forever $ do
+      out <- readChan $ outChan n
+      putStrLn $ "Node #" <> show (nodeId n) <> " sending " <> show out
+      handle out
+  modifyMVar_ (nodeTids n) (pure . (tid :))
+
 killNode :: Node -> IO ()
-killNode = mapM_ killThread . nodeTids
+killNode n = readMVar (nodeTids n) >>=  mapM_ killThread 
 
 -- filterById i = filter ((== i) . nodeId)
 

@@ -1,20 +1,27 @@
 module HttpNode (startHttpNode, startDebugNode) where
 
-import Control.Concurrent (ThreadId, forkIO, readChan)
-import Data.Aeson (FromJSON, ToJSON)
+import Control.Concurrent (ThreadId, forkIO)
+import Data.Aeson (ToJSON)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
 import Data.UUID.V4 (nextRandom)
-import Network.HTTP.Simple (Response, httpJSON, parseRequest, parseRequest_, setRequestBodyJSON, httpNoBody)
+import Network.HTTP.Simple
+  ( Response,
+    httpNoBody,
+    parseRequest_,
+    setRequestBodyJSON,
+  )
 import Node
   ( Message (AddTx, Fetch),
-    Node,
     NodeId,
     OMessage (MyPeers),
     Peer,
+    addPeerDebug,
+    listenNode,
+    nodeId,
     outChan,
     startNode,
-    tellNode', nodeId, addPeerDebug,
+    tellNode',
   )
 import Types
 import Web.Scotty qualified as S
@@ -23,7 +30,8 @@ startHttpNode :: Int -> NodeId -> TickView -> IO ThreadId
 startHttpNode port nID tickV = forkIO $ do
   node <- startNode tickV nID >>= addPeerDebug "8888"
 
-  startListenerThread node
+  listenNode node outMsgHandler
+
   let tellN = tellNode' node
   print $ "HttpNode started: " <> show node
   S.scotty port $ do
@@ -31,23 +39,18 @@ startHttpNode port nID tickV = forkIO $ do
       uid <- UUID.toText <$> liftIO nextRandom
       tellN (AddTx uid)
       S.json @Text "Ok"
-    
+
     S.get "/fetch" $ do
       sender <- S.param "sender"
       tellN (Fetch sender)
-  
+
     S.post "/take-peers" $ do
       receivedPeers :: [Peer] <- S.jsonData
       putStrLn $ "Node #" <> show (nodeId node) <> " got peers: " <> show receivedPeers
 
-startListenerThread :: Node -> IO ()
-startListenerThread n = void $
-  forkIO $ do
-    forever $ do
-      out <- readChan $ outChan n
-      putStrLn $ "Node #" <> show (nodeId n) <> " sending " <> show out
-      case out of
-        MyPeers sendTo peers' -> void $ peers' `postTo` sendTo
+outMsgHandler :: OMessage -> IO ()
+outMsgHandler = \case
+  MyPeers sendTo peers' -> void $ peers' `postTo` sendTo
   where
     postTo :: (ToJSON a) => a -> Peer -> IO (Response ()) -- FIXME: something better than Text?
     postTo payload to = do
@@ -56,7 +59,6 @@ startListenerThread n = void $
         . parseRequest_
         . T.unpack
         $ "POST http://localhost:" <> to <> "/take-peers"
-
 
 startDebugNode :: TickView -> IO ThreadId
 startDebugNode tv = forkIO $ do
