@@ -3,7 +3,7 @@ module Main where
 import Text.Read (read)
 import Data.Text qualified as T
 import Control.Concurrent (forkIO, threadDelay, modifyMVar_)
-import HttpNode (startHttpNode)
+import HttpNode (startHttpNode, startDebugNode)
 
 main :: IO ()
 main = do
@@ -14,6 +14,7 @@ main = do
     cmd <- getLine
     case words cmd of
         ["sn", i, p] -> startHttpNode (readT p) (readT i) ticker
+        ["sdn"] -> startDebugNode ticker
         _ -> die "hard"
 
 readT :: Read a => Text -> a

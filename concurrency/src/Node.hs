@@ -16,6 +16,9 @@ module Node
     NodeId,
     tellNode',
     Message (..),
+    OMessage (..),
+    Peer,
+    addPeerDebug,
   )
 where
 
@@ -37,15 +40,23 @@ type NodeId = Int
 
 data Message
   = AddTx Tx
+  | AddPeer Peer
+  | Fetch Peer
   -- ChainOf NodeId Text
+  deriving stock (Show)
+
+data OMessage
+  = MyPeers Peer [Peer]
   deriving stock (Show)
 
 type Tx = Text
 
+type Peer = Text
+
 data Node = Node
   { nodeId :: NodeId,
     inChan :: Chan Message,
-    outChan :: Chan Message,
+    outChan :: Chan OMessage,
     nState :: NodeState,
     nodeTids :: [ThreadId],
     tickView :: TickView
@@ -54,15 +65,24 @@ data Node = Node
 type NodeState = MVar NState
 
 data NState = NState
-  { peers :: [Text],
+  { peers :: [Peer],
     transactions :: Seq Tx
   }
 
-addTxToState :: Tx -> NodeState -> IO ()
-addTxToState tx ns = do
+addTx :: Tx -> NodeState -> IO ()
+addTx tx ns = do
   modifyMVar_
     ns
     (\s -> pure $ s {transactions = transactions s |> tx})
+
+addPeer :: Peer -> NodeState -> IO ()
+addPeer p ns = do
+  modifyMVar_
+    ns
+    (\s -> pure $ s {peers = p : peers s})
+
+addPeerDebug :: Peer -> Node -> IO Node
+addPeerDebug p node = addPeer p (nState node) >> pure node
 
 instance Show Node where
   show n = "Node #" <> show (nodeId n)
@@ -80,18 +100,20 @@ startNode tickView nodeId = do
   inChan <- newChan
   outChan <- newChan
   nState <- newMVar (NState mempty mempty)
-  nodeTids <- startNodeProcess nodeId inChan nState
+  nodeTids <- startNodeProcess nodeId inChan outChan nState
   return $ Node {..}
 
-startNodeProcess :: NodeId -> Chan Message -> NodeState -> IO [ThreadId]
-startNodeProcess i inCH ns = do
+startNodeProcess :: NodeId -> Chan Message -> Chan OMessage -> NodeState -> IO [ThreadId]
+startNodeProcess i inCh outCh ns = do
   print (mconcat ["Node #", show i, ": starts listening inbox"] :: Text)
   t1 <- forkIO $
     forever $ do
-      msg <- readChan inCH
+      msg <- readChan inCh
       print (mconcat ["Node #", show i, ": received ", show msg] :: Text)
       case msg of
-        AddTx tx -> addTxToState tx ns
+        AddTx tx -> addTx tx ns
+        AddPeer p -> addPeer p ns
+        Fetch reportTo -> readMVar ns >>= writeChan outCh . MyPeers reportTo . peers
   return [t1]
 
 killNode :: Node -> IO ()
