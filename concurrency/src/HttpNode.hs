@@ -19,7 +19,6 @@ import Node
     addPeerDebug,
     listenNode,
     nodeId,
-    outChan,
     startNode,
     tellNode',
   )

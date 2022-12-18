@@ -7,8 +7,6 @@
 module Node
   ( Node,
     nodeId,
-    inChan,
-    outChan,
     PeerAddr,
     startNode,
     tellNode,
@@ -26,6 +24,7 @@ where
 import Control.Concurrent
   ( Chan,
     ThreadId,
+    dupChan,
     forkIO,
     killThread,
     modifyMVar_,
@@ -67,7 +66,7 @@ type NodeState = MVar NState
 
 data NState = NState
   { peers :: [Peer],
-    transactions :: Seq Tx
+    transactions :: !(Seq Tx)
   }
 
 addTx :: Tx -> NodeState -> IO ()
@@ -78,9 +77,15 @@ addTx tx ns = do
 
 addPeer :: Peer -> NodeState -> IO ()
 addPeer p ns = do
-  modifyMVar_
-    ns
-    (\s -> pure $ s {peers = p : peers s})
+  {- Doing like so probably not that critical here and can be done
+  same way as `addTx`, it's just to memorize better example from PCPH.
+  It could be good for expensive operations in place of `newPeers = p : ps`.
+  Also see https://stackoverflow.com/questions/72262784/haskell-strict-mvar-with-bang-pattern
+  -}
+  (NState ps txs) <- takeMVar ns
+  let newPeers = p : ps
+  putMVar ns (NState newPeers txs)
+  seq newPeers (pure ())
 
 addPeerDebug :: Peer -> Node -> IO Node
 addPeerDebug p node = addPeer p (nState node) >> pure node
@@ -119,15 +124,16 @@ startNodeProcess i inCh outCh ns = do
 
 listenNode :: Node -> (OMessage -> IO a) -> IO ()
 listenNode n handle = do
-  tid <-forkIO $ do
+  listenChan <- dupChan (outChan n)
+  tid <- forkIO $ do
     forever $ do
-      out <- readChan $ outChan n
+      out <- readChan listenChan
       putStrLn $ "Node #" <> show (nodeId n) <> " sending " <> show out
       handle out
   modifyMVar_ (nodeTids n) (pure . (tid :))
 
 killNode :: Node -> IO ()
-killNode n = readMVar (nodeTids n) >>=  mapM_ killThread 
+killNode n = readMVar (nodeTids n) >>= mapM_ killThread
 
 -- filterById i = filter ((== i) . nodeId)
 
