@@ -1,0 +1,13 @@
+cradle:
+  cabal:
+    - path: "app/Main.hs"
+      component: "brick-tui:exe:tui"
+
+    - path: "app/App.hs"
+      component: "brick-tui:exe:tui"
+
+    - path: "app/Screens/Start.hs"
+      component: "brick-tui:exe:tui"
+
+    - path: "test"
+      component: "brick-tui:test:tests"

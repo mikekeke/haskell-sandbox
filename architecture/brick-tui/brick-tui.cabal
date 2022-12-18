@@ -118,6 +118,8 @@ executable tui
     , brick ^>=1.5
     , tagless
     , vty
+    , microlens-mtl
+    , microlens
     -- , unliftio
     -- , monad-logger
 
@@ -125,6 +127,7 @@ executable tui
   hs-source-dirs:   app
   other-modules:
     App
+    Screens.Start
     
   default-language: Haskell2010
 

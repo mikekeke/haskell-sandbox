@@ -9,8 +9,8 @@ cradle:
     - path: "architecture/tagless/app/Main.hs"
       component: "tagless:exe:tagless"
 
-    - path: "architecture/brick-tui/app/Main.hs"
-      component: "brick-tui:exe:tui"
+    # - path: "architecture/brick-tui/app/Main.hs"
+    #   component: "brick-tui:exe:tui"
 
     - path: "concurrency/src"
       component: "lib:concurrency"
