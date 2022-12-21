@@ -82,10 +82,24 @@ addPeer p ns = do
   It could be good for expensive operations in place of `newPeers = p : ps`.
   Also see https://stackoverflow.com/questions/72262784/haskell-strict-mvar-with-bang-pattern
   -}
+  {- 
   (NState ps txs) <- takeMVar ns
   let newPeers = p : ps
   putMVar ns (NState newPeers txs)
   seq newPeers (pure ())
+
+  UPD: hmm, it ^ is not safe coz of async exceptions looks like,
+       going back to `modifyMVar_`
+
+      maybe something like this?
+      peers' <- readMVar ...
+      let !newPeers = p : peers`
+      modifyMVar_ ns
+        (\s -> pure $ s {peers = newPeers})
+  -}
+  modifyMVar_
+    ns
+    (\s -> pure $ s {peers = p : peers s})
 
 addPeerDebug :: Peer -> Node -> IO Node
 addPeerDebug p node = addPeer p (nState node) >> pure node
