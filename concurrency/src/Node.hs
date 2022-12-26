@@ -18,9 +18,8 @@ module Node
     listenNode,
     nodeParent,
     Parent (..),
-    getPeers,
-    getParent,
-    transmit,
+    debugPeers,
+    debugParent,
   )
 where
 
@@ -241,3 +240,7 @@ selectParent node newParent = do
       --   -- && (announcer current /= announcer new)
       --   &&
       (parentNode current < parentNode new)
+
+debugPeers = getPeers
+
+debugParent = getParent

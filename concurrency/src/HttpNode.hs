@@ -26,8 +26,8 @@ import Node
         RequestConnection
       ),
     Parent,
-    getParent,
-    getPeers,
+    debugParent,
+    debugPeers,
     listenNode,
     nodeAddr,
     startNode,
@@ -62,11 +62,11 @@ startHttpNode port tickV = forkIO $ do
       tellNode' node (ReceiveParent candidate)
 
     S.get "/d-get-peers" $ do
-      ps <- liftIO $ getPeers node
+      ps <- liftIO $ debugPeers node
       S.json ps
 
     S.get "/d-get-parent" $ do
-      ps <- liftIO $ getParent node
+      ps <- liftIO $ debugParent node
       S.json ps
 
     S.post "/incoming-connect" $ do
@@ -98,5 +98,4 @@ startDebugNode tv = forkIO $ do
   pure ()
 
 instance ToJSON Parent
-
 instance FromJSON Parent
