@@ -10,10 +10,16 @@ main = do
   hSetBuffering stdin NoBuffering
   putStrLn "Enter command:"
   ticker <- startTicker
+  let run = runCmd ticker
+  mapM_ run ["sn 3001", "sn 3002"]
   forever $ do
     cmd <- getLine
-    case words cmd of
-        ["sn", i, p] -> startHttpNode (readT p) (readT i) ticker
+    run cmd
+
+  where
+    runCmd ticker cmd = 
+      case words cmd of
+        ["sn", p] -> startHttpNode (readT p) ticker
         ["sdn"] -> startDebugNode ticker
         _ -> die "hard"
 
@@ -23,6 +29,6 @@ readT = read . T.unpack
 startTicker :: IO (MVar Int)
 startTicker = do
   t <- newMVar 0
-  _ <- forkIO $ modifyMVar_ t (pure . succ) >> threadDelay 1_000_000
+  _ <- forkIO $ forever $ modifyMVar_ t (pure . succ) >> threadDelay 1_000_000
   return t
 
