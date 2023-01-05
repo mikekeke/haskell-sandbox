@@ -45,7 +45,7 @@ import Data.Set qualified as S
 import LogUtils
 import Text.Show qualified
 import Types
-
+import Data.Text.Encoding (decodeUtf8Lenient )
 {- TODO
  peers connect
  root announcements
@@ -201,7 +201,7 @@ idThread node = forkIO $ do
     assignId = do
       currSlot <- readMVar (tickView node)
       let addr = nodeAddr node
-          !nId = show $ encode $ hash (show addr <> show currSlot)
+          !nId = decodeUtf8Lenient $ encode $ hash (show addr <> show currSlot)
       void $ swapMVar (nodeHashId node) nId
       void $ resetParent node
       putStrLn $ "Hash updated : " <> show node <> " -> " <> show nId

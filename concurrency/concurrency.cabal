@@ -87,6 +87,7 @@ library
     , bytestring ^>= 0.10.10.0
     , base16-bytestring
     , aeson
+    , text ^>= 2.0.1
   
   exposed-modules:
     Node
