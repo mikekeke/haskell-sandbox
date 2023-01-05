@@ -32,14 +32,19 @@ import Control.Concurrent
     modifyMVar_,
     newChan,
     readChan,
-    writeChan, threadDelay,
+    threadDelay,
+    writeChan,
   )
+import Crypto.Hash.SHA256 (hash)
+import Data.ByteString qualified as BS
+import Data.ByteString.Base16 (encode)
+import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as M
 import Data.Sequence ((|>))
 import Data.Set qualified as S
+import LogUtils
 import Text.Show qualified
 import Types
-import Data.List.NonEmpty qualified as NE
 
 {- TODO
  peers connect
@@ -68,17 +73,17 @@ data OMessage
 type Tx = Text
 
 data Parent = Parent
-  { announceTime :: Int,
+  { parentNodeAddr :: NodeAddr,
+    announceTime :: Int,
     announcers :: NonEmpty NodeAddr,
-    parentNode :: NodeAddr
+    parentNodeId :: Text
   }
   deriving stock (Show, Generic)
 
 sameOnTime :: Parent -> Parent -> Bool
-sameOnTime p1 p2 = 
+sameOnTime p1 p2 =
   ((==) `on` announceTime) p1 p2
-  && ((==) `on` parentNode) p1 p2
-
+    && ((==) `on` parentNodeAddr) p1 p2
 
 type ParentAnnounces = Map NodeAddr Parent
 
@@ -88,8 +93,17 @@ data Node = Node
     outChan :: Chan OMessage,
     nState :: NodeState,
     nodeTids :: MVar [ThreadId],
-    tickView :: TickView
+    tickView :: TickView,
+    nodeHashId :: MVar Text
   }
+
+nodeId = nodeAddr
+
+readId = readMVar . nodeHashId
+
+nodeNetEqual n1 n2 =
+  ((==) `on` nodeAddr) n1 n2
+    && ((==) `on` nodeHashId) n1 n2
 
 type NodeState = MVar NState
 
@@ -108,10 +122,16 @@ getPeers = fmap peers . readMVar . nState
 
 setParent :: Node -> Parent -> IO ()
 setParent node p = do
-  putStrLn $ "Node #" <> show (nodeAddr node) <> " swtiches to parent " <> show p
+  dLog Switch $ show node <> " <SWTICHES> to parent " <> show p
   modifyMVar_
     (nState node)
     (\s -> pure $ s {nodeParent = Just p})
+
+resetParent :: Node -> IO ()
+resetParent node = do
+  modifyMVar_
+    (nState node)
+    (\s -> pure $ s {nodeParent = Nothing})
 
 addTx :: Tx -> NodeState -> IO ()
 addTx tx ns = do
@@ -165,26 +185,44 @@ startNode tickView nodeAddr = do
   outChan <- newChan
   nState <- newMVar (NState mempty mempty Nothing mempty)
   nodeTids <- newMVar []
+  nodeHashId <- newMVar ""
   let node = Node {..}
-  nodeTids' <- handleNodeProcess node >>= newMVar
+  idTid <- idThread node
+  nodeTids' <- handleNodeProcess node >>= newMVar . (idTid :)
   return $ node {nodeTids = nodeTids'}
+
+idThread :: Node -> IO ThreadId
+idThread node = forkIO $ do
+  assignId
+  forever $ do
+    threadDelay 30_000_000
+    assignId
+  where
+    assignId = do
+      currSlot <- readMVar (tickView node)
+      let addr = nodeAddr node
+          !nId = show $ encode $ hash (show addr <> show currSlot)
+      void $ swapMVar (nodeHashId node) nId
+      void $ resetParent node
+      putStrLn $ "Hash updated : " <> show node <> " -> " <> show nId
+      tellNode' node AnnounceRoot
 
 handleNodeProcess :: Node -> IO [ThreadId]
 handleNodeProcess node = do
   let ns = nState node
-      i = nodeAddr node
-  print (mconcat ["Node #", show i, ": starts listening inbox"] :: Text)
+      addr = nodeAddr node
+  print (mconcat [show node, ": starts listening inbox"] :: Text)
   t1 <- forkIO $
     forever $ do
       msg <- readChan (inChan node)
-      print (mconcat ["Node #", show i, ": received ", show msg] :: Text)
+      dLog Receive (mconcat [show node, ": received ", show msg])
       case msg of
         AddTx tx -> addTx tx ns
-        IncomingPeer p -> addPeer p node >> transmit node (PeerIsOk i p)
+        IncomingPeer p -> addPeer p node >> transmit node (PeerIsOk addr p)
         ReceiveParent p -> selectParent node p
         AnnounceRoot -> announceParentToPeers node -- FIXME: better naming and logic
         PeerAccepted p -> addPeer p node
-        InitConnection to -> transmit node (RequestConnection i to)
+        InitConnection to -> transmit node (RequestConnection addr to)
   return [t1]
 
 listenNode :: Node -> (OMessage -> IO a) -> IO ()
@@ -193,7 +231,7 @@ listenNode n handle = do
   tid <- forkIO $ do
     forever $ do
       out <- readChan listenChan
-      putStrLn $ "Node #" <> show (nodeAddr n) <> " sending " <> show out
+      dLog Send $ show n <> " sending " <> show out
       handle out
   modifyMVar_ (nodeTids n) (pure . (tid :))
 
@@ -207,13 +245,15 @@ announceParentToPeers n = do
 
 announceParentTo :: Node -> Set NodeAddr -> IO ()
 announceParentTo n receivers = do
-  currSlot <- getSlot n
-  maybeParent <- getParent n
-  let announcer = nodeAddr n
-      parent = case maybeParent of
-        Nothing -> Parent currSlot (NE.singleton announcer) (nodeAddr n)
-        Just p -> p {announcers = NE.cons announcer (announcers p)}
-  transmit n $ MyParent receivers parent
+  unless (S.null receivers) $ do
+    currSlot <- getSlot n
+    maybeParent <- getParent n
+    hashId <- readId n
+    let announcer = nodeAddr n
+        parent = case maybeParent of
+          Nothing -> Parent (nodeAddr n) currSlot (NE.singleton announcer) hashId
+          Just p -> p {announcers = NE.cons announcer (announcers p)}
+    transmit n $ MyParent receivers parent
 
 getSlot :: Node -> IO Int
 getSlot n = readMVar (tickView n)
@@ -225,38 +265,32 @@ selectParent node newParent = do
     case mParent of
       Nothing -> do
         currSlot <- getSlot node
-        pure $ Parent currSlot (NE.singleton $ nodeAddr node) (nodeAddr node)
+        hashId <- readId node
+        pure $ Parent (nodeAddr node) currSlot (NE.singleton $ nodeAddr node) hashId
       Just p -> pure p
 
-  if parentNode newParent == nodeAddr node
-     || sameOnTime newParent currentParent
+  if parentNodeAddr newParent == nodeAddr node
+    || sameOnTime newParent currentParent
     then do
-      putStrLn $
-        "Node #" <> show (nodeAddr node)
-          <> " discarding parent announce loop"
+      dLog DiscardLoop $ show node <> " discarding parent announce loop"
       pure ()
     else do
-      -- putStrLn $ "Node #" <> show currentParent
-      -- putStrLn $ "Node #" <> show newParent
       if isBetter currentParent newParent
-        then do -- reply back to sender with own root
-          _ <- threadDelay 2_000_000
+        then do
+          -- reply back to sender with own root
+          -- _ <- threadDelay 2_000_000
           announceParentTo node (S.singleton $ head $ announcers newParent)
-        else do 
+        else do
           setParent node newParent
           peers <- getPeers node
-          _ <- threadDelay 2_000_000
+          -- _ <- threadDelay 2_000_000
           announceParentTo node peers
-      
   where
     isBetter current new =
       -- (announceTime current >= announceTime new)
       --   -- && (announcer current /= announcer new)
       --   &&
-      (parentNode current <= parentNode new)
-
-    newerAnnounce newParent currentParent =
-      announceTime newParent > announceTime currentParent
+      (parentNodeId current <= parentNodeId new)
 
 debugPeers = getPeers
 

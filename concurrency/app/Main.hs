@@ -11,7 +11,11 @@ main = do
   putStrLn "Enter command:"
   ticker <- startTicker
   let run = runCmd ticker
-  mapM_ run ["sn 3001", "sn 3002", "sn 3003"]
+  mapM_ run [ "sn 3001"
+            , "sn 3002"
+            , "sn 3003"
+            , "sn 3000"
+            ]
   forever $ do
     cmd <- getLine
     run cmd
