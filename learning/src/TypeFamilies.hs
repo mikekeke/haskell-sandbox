@@ -20,3 +20,37 @@ type family FromMaybe d x where
 type Fst :: (a, b) -> a
 type family Fst t where
   Fst '(x, _) = x
+
+
+---------------------
+---- other tests ----
+---------------------
+
+data Fenotype
+  = HasLegs
+  | HasWings
+
+type family CanFly (mode :: Fenotype) :: Bool where
+  CanFly 'HasLegs = 'False
+  CanFly 'HasWings = 'True
+
+
+data Creature (ft :: Fenotype) where
+  Bobr :: Creature 'HasLegs
+  LeglessFlyingBobr :: Creature 'HasWings
+
+{-
+Ignore "Redundant constraint" warning.
+W/o "CanFly fen ~ 'True" resNok will compile
+-}
+requestLandingZone ::
+  CanFly fen ~ 'True =>
+  Creature fen ->
+  Maybe ()
+requestLandingZone = error "todo"
+
+-- resNok :: Maybe ()
+-- resNok = requestLandingZone Bobr -- won't compile
+
+resOk :: Maybe ()
+resOk = requestLandingZone LeglessFlyingBobr

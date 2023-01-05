@@ -50,10 +50,10 @@ registerCargo p gs = do
         uncurry (liftA2 (,))
           <$> runConc ((,) <$> conc getNewId <*> conc registerUser)
 
-    getNewId = left FailedToGetNewId <$> nextCargoId
+    getNewId = nextCargoId <&> left FailedToGetNewId
 
     registerUser = do
-      left FailedRegisterUser <$> addUser p
+      addUser p <&> left FailedRegisterUser
 
     withLogging ::
       MonadLogger m =>

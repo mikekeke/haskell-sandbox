@@ -32,13 +32,14 @@ import Control.Concurrent
     modifyMVar_,
     newChan,
     readChan,
-    writeChan,
+    writeChan, threadDelay,
   )
 import Data.Map qualified as M
-import Data.Sequence
+import Data.Sequence ((|>))
 import Data.Set qualified as S
 import Text.Show qualified
 import Types
+import Data.List.NonEmpty qualified as NE
 
 {- TODO
  peers connect
@@ -68,10 +69,16 @@ type Tx = Text
 
 data Parent = Parent
   { announceTime :: Int,
-    announcer :: NodeAddr,
+    announcers :: NonEmpty NodeAddr,
     parentNode :: NodeAddr
   }
   deriving stock (Show, Generic)
+
+sameOnTime :: Parent -> Parent -> Bool
+sameOnTime p1 p2 = 
+  ((==) `on` announceTime) p1 p2
+  && ((==) `on` parentNode) p1 p2
+
 
 type ParentAnnounces = Map NodeAddr Parent
 
@@ -204,8 +211,8 @@ announceParentTo n receivers = do
   maybeParent <- getParent n
   let announcer = nodeAddr n
       parent = case maybeParent of
-        Nothing -> Parent currSlot announcer (nodeAddr n)
-        Just p -> p
+        Nothing -> Parent currSlot (NE.singleton announcer) (nodeAddr n)
+        Just p -> p {announcers = NE.cons announcer (announcers p)}
   transmit n $ MyParent receivers parent
 
 getSlot :: Node -> IO Int
@@ -218,10 +225,11 @@ selectParent node newParent = do
     case mParent of
       Nothing -> do
         currSlot <- getSlot node
-        pure $ Parent currSlot (nodeAddr node) (nodeAddr node)
+        pure $ Parent currSlot (NE.singleton $ nodeAddr node) (nodeAddr node)
       Just p -> pure p
 
   if parentNode newParent == nodeAddr node
+     || sameOnTime newParent currentParent
     then do
       putStrLn $
         "Node #" <> show (nodeAddr node)
@@ -230,16 +238,25 @@ selectParent node newParent = do
     else do
       -- putStrLn $ "Node #" <> show currentParent
       -- putStrLn $ "Node #" <> show newParent
-      unless (isBetter currentParent newParent) $ do
-        setParent node newParent
-      peers <- getPeers node
-      announceParentTo node (S.insert (announcer newParent) peers)
+      if isBetter currentParent newParent
+        then do -- reply back to sender with own root
+          _ <- threadDelay 2_000_000
+          announceParentTo node (S.singleton $ head $ announcers newParent)
+        else do 
+          setParent node newParent
+          peers <- getPeers node
+          _ <- threadDelay 2_000_000
+          announceParentTo node peers
+      
   where
     isBetter current new =
       -- (announceTime current >= announceTime new)
       --   -- && (announcer current /= announcer new)
       --   &&
-      (parentNode current < parentNode new)
+      (parentNode current <= parentNode new)
+
+    newerAnnounce newParent currentParent =
+      announceTime newParent > announceTime currentParent
 
 debugPeers = getPeers
 

@@ -17,7 +17,7 @@ import Node
         IncomingPeer,
         InitConnection,
         PeerAccepted,
-        ReceiveParent
+        ReceiveParent, AnnounceRoot
       ),
     NodeAddr,
     OMessage
@@ -76,6 +76,7 @@ startHttpNode port tickV = forkIO $ do
     S.post "/accepted" $ do
       accepted :: NodeAddr <- S.jsonData
       tellNode' node (PeerAccepted accepted)
+      tellNode' node AnnounceRoot
 
 outMsgHandler :: OMessage -> IO ()
 outMsgHandler = \case
