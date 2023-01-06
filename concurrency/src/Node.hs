@@ -17,7 +17,7 @@ module Node
     OMessage (..),
     listenNode,
     nodeParent,
-    Parent (..),
+    RootInfo (..),
     debugPeers,
     debugParent,
   )
@@ -42,10 +42,11 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as M
 import Data.Sequence ((|>))
 import Data.Set qualified as S
+import Data.Text.Encoding (decodeUtf8Lenient)
 import LogUtils
 import Text.Show qualified
 import Types
-import Data.Text.Encoding (decodeUtf8Lenient )
+
 {- TODO
  peers connect
  root announcements
@@ -56,7 +57,7 @@ type NodeAddr = Int
 
 data Message
   = AddTx Tx
-  | ReceiveParent Parent
+  | ReceiveParent RootInfo
   | AnnounceRoot
   | InitConnection NodeAddr
   | IncomingPeer NodeAddr
@@ -65,27 +66,36 @@ data Message
   deriving stock (Show)
 
 data OMessage
-  = MyParent (Set NodeAddr) Parent
+  = MyParent (Set NodeAddr) RootInfo
   | PeerIsOk NodeAddr NodeAddr -- this node id, peer id
   | RequestConnection NodeAddr NodeAddr
   deriving stock (Show)
 
 type Tx = Text
 
-data Parent = Parent
-  { parentNodeAddr :: NodeAddr,
+data RootInfo = RootInfo
+  { rootAddr :: NodeAddr,
     announceTime :: Int,
     announcers :: NonEmpty NodeAddr,
     parentNodeId :: Text
   }
-  deriving stock (Show, Generic)
+  deriving stock (Generic)
 
-sameOnTime :: Parent -> Parent -> Bool
+instance Show RootInfo where
+  show (RootInfo root time anns _) =
+    "RootInfo {root = " <> show root
+      <> ", parent = "
+      <> show (head anns)
+      <> ", time = "
+      <> show time
+      <> "}"
+
+sameOnTime :: RootInfo -> RootInfo -> Bool
 sameOnTime p1 p2 =
   ((==) `on` announceTime) p1 p2
-    && ((==) `on` parentNodeAddr) p1 p2
+    && ((==) `on` rootAddr) p1 p2
 
-type ParentAnnounces = Map NodeAddr Parent
+type ParentAnnounces = Map NodeAddr RootInfo
 
 data Node = Node
   { nodeAddr :: NodeAddr,
@@ -110,19 +120,19 @@ type NodeState = MVar NState
 data NState = NState
   { announces :: ParentAnnounces, -- ? TODO: maybe they should go to HttpNode?
     transactions :: !(Seq Tx),
-    nodeParent :: Maybe Parent,
+    nodeParent :: Maybe RootInfo,
     peers :: Set NodeAddr
   }
 
-getParent :: Node -> IO (Maybe Parent)
+getParent :: Node -> IO (Maybe RootInfo)
 getParent = fmap nodeParent . readMVar . nState
 
 getPeers :: Node -> IO (Set NodeAddr)
 getPeers = fmap peers . readMVar . nState
 
-setParent :: Node -> Parent -> IO ()
+setParent :: Node -> RootInfo -> IO ()
 setParent node p = do
-  dLog Switch $ show node <> " <SWTICHES> to parent " <> show p
+  dLog Switch $ show node <> " <PICKS> " <> show p
   modifyMVar_
     (nState node)
     (\s -> pure $ s {nodeParent = Just p})
@@ -251,14 +261,14 @@ announceParentTo n receivers = do
     hashId <- readId n
     let announcer = nodeAddr n
         parent = case maybeParent of
-          Nothing -> Parent (nodeAddr n) currSlot (NE.singleton announcer) hashId
+          Nothing -> RootInfo (nodeAddr n) currSlot (NE.singleton announcer) hashId
           Just p -> p {announcers = NE.cons announcer (announcers p)}
     transmit n $ MyParent receivers parent
 
 getSlot :: Node -> IO Int
 getSlot n = readMVar (tickView n)
 
-selectParent :: Node -> Parent -> IO ()
+selectParent :: Node -> RootInfo -> IO ()
 selectParent node newParent = do
   mParent <- getParent node
   currentParent <-
@@ -266,10 +276,10 @@ selectParent node newParent = do
       Nothing -> do
         currSlot <- getSlot node
         hashId <- readId node
-        pure $ Parent (nodeAddr node) currSlot (NE.singleton $ nodeAddr node) hashId
+        pure $ RootInfo (nodeAddr node) currSlot (NE.singleton $ nodeAddr node) hashId
       Just p -> pure p
 
-  if parentNodeAddr newParent == nodeAddr node
+  if rootAddr newParent == nodeAddr node
     || sameOnTime newParent currentParent
     then do
       dLog DiscardLoop $ show node <> " discarding parent announce loop"

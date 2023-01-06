@@ -1,53 +1,45 @@
 
-### 
+###
+POST http://localhost:3000/connect HTTP/1.1
+content-type: application/json
+
+3001
+
+###
 POST http://localhost:3001/connect HTTP/1.1
 content-type: application/json
 
-3000
+3002
 
 ###
-POST http://localhost:3002/connect HTTP/1.1
-content-type: application/json
-
-3000
-
-
-
-
-
-
-
-
-
-### CONNECT 3002 <-> 3003
 POST http://localhost:3002/connect HTTP/1.1
 content-type: application/json
 
 3003
 
-### CONNECT 3002 <-> 3004
-POST http://localhost:3002/connect HTTP/1.1
+###
+POST http://localhost:3003/connect HTTP/1.1
 content-type: application/json
 
 3004
+
+###
+POST http://localhost:3004/connect HTTP/1.1
+content-type: application/json
+
+3005
 
 ###
 POST http://localhost:3005/connect HTTP/1.1
 content-type: application/json
 
-3004
+3006
 
 ###
 POST http://localhost:3006/connect HTTP/1.1
 content-type: application/json
 
-3004
-
-###
-POST http://localhost:3007/connect HTTP/1.1
-content-type: application/json
-
-3004
+3007
 
 
 ###

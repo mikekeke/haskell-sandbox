@@ -88,6 +88,7 @@ library
     , base16-bytestring
     , aeson
     , text ^>= 2.0.1
+    , time ^>= 1.9.3
   
   exposed-modules:
     Node

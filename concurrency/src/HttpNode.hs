@@ -25,7 +25,7 @@ import Node
         PeerIsOk,
         RequestConnection
       ),
-    Parent,
+    RootInfo,
     debugParent,
     debugPeers,
     listenNode,
@@ -58,7 +58,7 @@ startHttpNode port tickV = forkIO $ do
       tellN (InitConnection toPort)
 
     S.post "/take-parent" $ do
-      candidate :: Parent <- S.jsonData
+      candidate :: RootInfo <- S.jsonData
       tellNode' node (ReceiveParent candidate)
 
     S.get "/d-get-peers" $ do
@@ -98,5 +98,5 @@ startDebugNode tv = forkIO $ do
   _ <- httpNoBody "http://localhost:3000/fetch?sender=3003"
   pure ()
 
-instance ToJSON Parent
-instance FromJSON Parent
+instance ToJSON RootInfo
+instance FromJSON RootInfo
