@@ -10,13 +10,15 @@ data LogType
   | Receive
   | Switch
   | DiscardLoop
-  deriving stock (Eq, Ord)
+  | BeforeReset
+  deriving stock (Eq, Ord, Show)
 
 log :: Set LogType -> LogType -> Text -> IO ()
 log allowed current msg = do
   when (current `member` allowed) (printMsg msg)
   where
-    printMsg = withTime (putStrLn . unpack)
+    appendType s = show current <> ": " <> s
+    printMsg = withTime (putStrLn . unpack) . appendType
 
 withTime :: (Text -> IO ()) -> (Text -> IO ())
 withTime act = \msg -> do
@@ -27,8 +29,12 @@ withTime act = \msg -> do
 dSet :: Set LogType
 dSet =
   fromList
-    [ Switch
-    -- , Send
+    [ 
+      Switch
+      , 
+      BeforeReset
+    , Send
+    , Receive
     ]
 
 dLog :: LogType -> Text -> IO ()

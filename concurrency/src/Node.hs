@@ -141,7 +141,9 @@ resetParent :: Node -> IO ()
 resetParent node = do
   modifyMVar_
     (nState node)
-    (\s -> pure $ s {nodeParent = Nothing})
+    (\s -> do 
+      dLog BeforeReset $ show (nodeParent s)
+      pure $ s {nodeParent = Nothing})
 
 addTx :: Tx -> NodeState -> IO ()
 addTx tx ns = do
@@ -205,7 +207,7 @@ idThread :: Node -> IO ThreadId
 idThread node = forkIO $ do
   assignId
   forever $ do
-    threadDelay 30_000_000
+    threadDelay 10_000_000
     assignId
   where
     assignId = do
@@ -225,7 +227,7 @@ handleNodeProcess node = do
   t1 <- forkIO $
     forever $ do
       msg <- readChan (inChan node)
-      dLog Receive (mconcat [show node, ": received ", show msg])
+      dLog Receive (mconcat [show node, ": ", show msg])
       case msg of
         AddTx tx -> addTx tx ns
         IncomingPeer p -> addPeer p node >> transmit node (PeerIsOk addr p)
@@ -241,7 +243,7 @@ listenNode n handle = do
   tid <- forkIO $ do
     forever $ do
       out <- readChan listenChan
-      dLog Send $ show n <> " sending " <> show out
+      dLog Send $ show n <> ": " <> show out
       handle out
   modifyMVar_ (nodeTids n) (pure . (tid :))
 
