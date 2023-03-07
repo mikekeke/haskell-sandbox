@@ -84,6 +84,7 @@ library
   
   exposed-modules:
     TypeFamilies
+    TypeClassesStuff
 
   hs-source-dirs:   src
   default-language: Haskell2010
