@@ -29,3 +29,6 @@ cradle:
 
     - path: "learning/app/Main.hs"
       component: "learning:exe:learning"
+
+    - path: "puzzles/app/Main.hs"
+      component: "puzzles:exe:puzzles"
