@@ -1,4 +1,6 @@
 module Main where
 
+import Hanoi
+
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = hanoi

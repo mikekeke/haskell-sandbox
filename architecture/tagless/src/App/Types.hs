@@ -51,7 +51,7 @@ newtype App m a = App {unIOApp :: ReaderT AppEnv (LoggingT m) a}
 
 
 data AppEnv = AppEnv
-  { dbConn :: Connection
+  { dbConnPath :: String
 
   }
 

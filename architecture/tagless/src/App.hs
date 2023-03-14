@@ -5,7 +5,7 @@ module App
   )
 where
 
-import Database.SQLite.Simple (execute_, open)
+import Database.SQLite.Simple (execute_, open, withConnection)
 import App.UserRegistry as X
 import App.IdServiceSubs as X
 import App.CargoRegistry as X ()
@@ -18,13 +18,13 @@ bpPath = "app.db"
 
 setup :: AppConfig -> IO AppEnv
 setup _ = do
-  conn <- open bpPath
-  traverse_ ($ conn) 
-    [ initUserTable
-    , initCargoTable
-    ]
+  withConnection bpPath $ \conn ->
+    traverse_ ($ conn) 
+      [ initUserTable
+      , initCargoTable
+      ]
     
-  return (AppEnv conn)
+  return (AppEnv bpPath)
   where
     initUserTable conn =
       execute_ conn
